@@ -252,48 +252,48 @@ export default function App() {
           </header>
 
           {/* Asymmetric Two-Column Hero Grid */}
-          <div className="my-auto py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          <div className="my-auto py-4 sm:py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-center">
             {/* LEFT COLUMN: Title, Brand, Hook, Badges, CTAs */}
-            <div className="lg:col-span-6 flex flex-col items-start text-left space-y-6">
+            <div className="lg:col-span-6 flex flex-col items-start text-left space-y-4 sm:space-y-6">
               {/* Eyebrow */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#1A233A] border border-[#3568F5]/40 text-[#3568F5] text-xs font-arcade font-bold tracking-widest uppercase">
+              <div className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-md bg-[#1A233A] border border-[#3568F5]/40 text-[#3568F5] text-[10px] sm:text-xs font-arcade font-bold tracking-widest uppercase">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>THE CLASSROOM ARCADE</span>
               </div>
 
               {/* Bold Oversized Hero Title */}
               <div>
-                <h1 className="font-display text-6xl sm:text-7xl md:text-8xl font-black uppercase tracking-tight text-[#F5E8CC] leading-[0.9]">
+                <h1 className="font-display text-5xl sm:text-7xl md:text-8xl font-black uppercase tracking-tight text-[#F5E8CC] leading-[0.9]">
                   PEN <span className="text-[#FF7138]">ATTACK</span>
                 </h1>
-                <p className="mt-3 text-sm md:text-base text-slate-300 max-w-md font-body leading-relaxed">
+                <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm md:text-base text-slate-300 max-w-md font-body leading-relaxed">
                   The physics-driven schoolyard table flicking showdown. Slingshot your ballpoint, bounce rivals off the wooden desk edge, and reign supreme across escalating waves.
                 </p>
               </div>
 
               {/* Arcade Badges: Best Score & Total Wins */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#182033] border border-slate-700/80 shadow-arcade">
-                  <Trophy className="w-4 h-4 text-[#FF7138]" />
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 sm:py-2 rounded-xl bg-[#182033] border border-slate-700/80 shadow-arcade">
+                  <Trophy className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-[#FF7138]" />
                   <div>
-                    <span className="text-[9px] font-arcade tracking-widest text-slate-400 block uppercase font-semibold">
+                    <span className="text-[8px] sm:text-[9px] font-arcade tracking-widest text-slate-400 block uppercase font-semibold">
                       BEST SCORE
                     </span>
-                    <span className="font-arcade text-sm font-bold text-[#F5E8CC] tabular-nums">
+                    <span className="font-arcade text-xs sm:text-sm font-bold text-[#F5E8CC] tabular-nums">
                       {bestScore.toLocaleString()} PTS
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#182033] border border-slate-700/80 shadow-arcade">
-                  <div className="w-4 h-4 rounded-full bg-[#A6AD75]/20 text-[#A6AD75] flex items-center justify-center font-arcade text-[10px] font-bold">
+                <div className="flex items-center gap-2 px-3 py-1.5 sm:py-2 rounded-xl bg-[#182033] border border-slate-700/80 shadow-arcade">
+                  <div className="w-3.5 sm:w-4 h-3.5 sm:h-4 rounded-full bg-[#A6AD75]/20 text-[#A6AD75] flex items-center justify-center font-arcade text-[9px] sm:text-[10px] font-bold">
                     W
                   </div>
                   <div>
-                    <span className="text-[9px] font-arcade tracking-widest text-slate-400 block uppercase font-semibold">
+                    <span className="text-[8px] sm:text-[9px] font-arcade tracking-widest text-slate-400 block uppercase font-semibold">
                       TOTAL WINS
                     </span>
-                    <span className="font-arcade text-sm font-bold text-[#A6AD75] tabular-nums">
+                    <span className="font-arcade text-xs sm:text-sm font-bold text-[#A6AD75] tabular-nums">
                       {totalWins} WAVES
                     </span>
                   </div>
@@ -305,12 +305,12 @@ export default function App() {
                     sound.playClick();
                     setIsArsenalOpen(true);
                   }}
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#182033] hover:bg-[#202B45] border border-[#3568F5]/50 transition-colors shadow-arcade"
+                  className="flex items-center gap-2 px-3 py-1.5 sm:py-2 rounded-xl bg-[#182033] hover:bg-[#202B45] border border-[#3568F5]/50 transition-colors shadow-arcade"
                   title="Switch equipped stationery"
                 >
-                  <Crosshair className="w-4 h-4 text-[#3568F5]" />
+                  <Crosshair className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-[#3568F5]" />
                   <div>
-                    <span className="text-[9px] font-arcade tracking-widest text-slate-400 block uppercase font-semibold">
+                    <span className="text-[8px] sm:text-[9px] font-arcade tracking-widest text-slate-400 block uppercase font-semibold">
                       EQUIPPED PEN
                     </span>
                     <span className="font-body text-xs font-semibold text-[#F5E8CC]">
@@ -321,27 +321,27 @@ export default function App() {
               </div>
 
               {/* Action Buttons Group */}
-              <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+              <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 pt-1 sm:pt-2">
                 {/* Prominent Electric Orange Start Game CTA */}
                 <button
                   onClick={handleStartGame}
-                  className="px-8 py-4 bg-[#FF7138] hover:bg-[#ff8352] active:translate-y-1 text-white font-display text-2xl font-black uppercase tracking-wider rounded-xl shadow-arcade-orange flex items-center justify-center gap-3 transition-all cursor-pointer"
+                  className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 bg-[#FF7138] hover:bg-[#ff8352] active:translate-y-1 text-white font-display text-xl sm:text-2xl font-black uppercase tracking-wider rounded-xl shadow-arcade-orange flex items-center justify-center gap-3 transition-all cursor-pointer"
                 >
-                  <Play className="w-6 h-6 fill-white" />
+                  <Play className="w-5 sm:w-6 h-5 sm:h-6 fill-white" />
                   <span>START GAME</span>
                 </button>
 
-                {/* Compact Secondary Controls */}
-                <div className="flex items-center gap-2">
+                {/* Compact Secondary Controls in responsive 3-col grid on mobile */}
+                <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2">
                   <button
                     onClick={() => {
                       sound.playClick();
                       setIsHowToPlayOpen(true);
                     }}
-                    className="flex-1 sm:flex-none px-4 py-3 bg-[#182033] hover:bg-[#202B45] border border-slate-700/80 active:translate-y-0.5 text-xs font-arcade font-bold tracking-wider uppercase text-[#F5E8CC] rounded-xl transition-all flex items-center justify-center gap-1.5"
+                    className="px-2.5 sm:px-4 py-2.5 sm:py-3 bg-[#182033] hover:bg-[#202B45] border border-slate-700/80 active:translate-y-0.5 text-[10px] sm:text-xs font-arcade font-bold tracking-wider uppercase text-[#F5E8CC] rounded-xl transition-all flex items-center justify-center gap-1"
                   >
-                    <HelpCircle className="w-4 h-4 text-slate-400" />
-                    <span>HOW TO PLAY</span>
+                    <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                    <span>RULES</span>
                   </button>
 
                   <button
@@ -349,9 +349,9 @@ export default function App() {
                       sound.playClick();
                       setIsLeaderboardOpen(true);
                     }}
-                    className="flex-1 sm:flex-none px-4 py-3 bg-[#182033] hover:bg-[#202B45] border border-slate-700/80 active:translate-y-0.5 text-xs font-arcade font-bold tracking-wider uppercase text-[#F5E8CC] rounded-xl transition-all flex items-center justify-center gap-1.5"
+                    className="px-2.5 sm:px-4 py-2.5 sm:py-3 bg-[#182033] hover:bg-[#202B45] border border-slate-700/80 active:translate-y-0.5 text-[10px] sm:text-xs font-arcade font-bold tracking-wider uppercase text-[#F5E8CC] rounded-xl transition-all flex items-center justify-center gap-1"
                   >
-                    <Trophy className="w-4 h-4 text-[#FF7138]" />
+                    <Trophy className="w-3.5 h-3.5 text-[#FF7138]" />
                     <span>SCORES</span>
                   </button>
 
@@ -361,9 +361,10 @@ export default function App() {
                       setIsSettingsOpen(true);
                     }}
                     aria-label="Settings"
-                    className="p-3 bg-[#182033] hover:bg-[#202B45] border border-slate-700/80 active:translate-y-0.5 text-[#F5E8CC] rounded-xl transition-all flex items-center justify-center"
+                    className="py-2.5 sm:py-3 px-3 bg-[#182033] hover:bg-[#202B45] border border-slate-700/80 active:translate-y-0.5 text-[#F5E8CC] rounded-xl transition-all flex items-center justify-center gap-1 text-[10px] sm:text-xs font-arcade font-bold"
                   >
-                    <Settings className="w-4 h-4 text-slate-400" />
+                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="sm:hidden">SET</span>
                   </button>
                 </div>
               </div>

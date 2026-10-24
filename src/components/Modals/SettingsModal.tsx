@@ -21,8 +21,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#101522]/80 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-md bg-[#182033] border-2 border-slate-700 rounded-2xl shadow-arcade p-6 text-[#F5E8CC]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#101522]/85 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto bg-[#182033] border-2 border-slate-700 rounded-2xl shadow-arcade p-4 sm:p-6 text-[#F5E8CC]">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-700/80">
           <div>

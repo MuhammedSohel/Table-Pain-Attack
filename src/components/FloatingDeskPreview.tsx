@@ -77,7 +77,7 @@ export const FloatingDeskPreview: React.FC<FloatingDeskPreviewProps> = ({ select
 
       {/* Floating Wooden Desk Gameboard */}
       <div
-        className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden shadow-board-floating border border-slate-700/60 transition-transform duration-200 ease-out"
+        className="relative w-full aspect-[4/3] rounded-2xl sm:rounded-3xl overflow-hidden shadow-board-floating border border-slate-700/60 transition-transform duration-200 ease-out"
         style={{
           transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
           background: 'linear-gradient(145deg, #5C3E28 0%, #4D331F 60%, #3B2414 100%)'
@@ -87,22 +87,22 @@ export const FloatingDeskPreview: React.FC<FloatingDeskPreviewProps> = ({ select
         <div className="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(to_bottom,transparent_31px,rgba(0,0,0,0.5)_32px)] bg-[size:100%_32px]" />
 
         {/* Notebook Ruled Paper Sheet resting on the desk */}
-        <div className="absolute left-8 top-10 w-64 h-80 rounded-xl bg-[#F5E8CC] shadow-lg -rotate-6 overflow-hidden pattern-ruled-paper border border-[#E0D2B4]/80 p-5">
+        <div className="absolute left-3 sm:left-8 top-4 sm:top-10 w-44 sm:w-64 h-52 sm:h-80 rounded-xl bg-[#F5E8CC] shadow-lg -rotate-6 overflow-hidden pattern-ruled-paper border border-[#E0D2B4]/80 p-3 sm:p-5">
           {/* Notebook Margin line in electric orange */}
-          <div className="absolute top-0 bottom-0 left-8 w-[1.5px] bg-[#FF7138]/40" />
+          <div className="absolute top-0 bottom-0 left-5 sm:left-8 w-[1.5px] bg-[#FF7138]/40" />
 
           {/* Doodles on notebook */}
-          <div className="pl-6 pt-2 font-display text-slate-800 text-lg tracking-wider font-extrabold uppercase opacity-85">
+          <div className="pl-4 sm:pl-6 pt-1 sm:pt-2 font-display text-slate-800 text-sm sm:text-lg tracking-wider font-extrabold uppercase opacity-85">
             ROUND PROTOCOL
           </div>
-          <div className="pl-6 pt-1 text-[11px] font-body text-slate-600 space-y-2">
+          <div className="pl-4 sm:pl-6 pt-1 text-[10px] sm:text-[11px] font-body text-slate-600 space-y-1 sm:space-y-2">
             <p>1. Pull back to charge momentum.</p>
             <p>2. Aim for opponent pen centers.</p>
-            <p>3. Edge knockouts score 350+ bonus pts.</p>
+            <p>3. Edge knockouts score 350+ pts.</p>
           </div>
 
           {/* Doodled pencil illustration */}
-          <div className="absolute right-4 bottom-4 opacity-75">
+          <div className="absolute right-2 sm:right-4 bottom-2 sm:bottom-4 opacity-75 scale-75 sm:scale-100">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#101522" strokeWidth="1.8">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
@@ -110,11 +110,11 @@ export const FloatingDeskPreview: React.FC<FloatingDeskPreviewProps> = ({ select
         </div>
 
         {/* Stationary Wooden Ruler Engraving */}
-        <div className="absolute top-4 right-6 bottom-4 w-9 bg-[#3E2616] rounded-md border border-amber-900/40 flex flex-col justify-between py-4 items-end pr-1 text-[9px] font-arcade text-amber-200/50">
+        <div className="absolute top-4 right-3 sm:right-6 bottom-4 w-7 sm:w-9 bg-[#3E2616] rounded-md border border-amber-900/40 flex flex-col justify-between py-3 sm:py-4 items-end pr-1 text-[8px] sm:text-[9px] font-arcade text-amber-200/50">
           {[...Array(12)].map((_, i) => (
             <div key={i} className="flex items-center gap-1">
-              {i % 2 === 0 && <span>{i * 2}</span>}
-              <div className={`h-[1px] bg-amber-200/40 ${i % 2 === 0 ? 'w-3.5' : 'w-2'}`} />
+              {i % 2 === 0 && <span className="hidden sm:inline">{i * 2}</span>}
+              <div className={`h-[1px] bg-amber-200/40 ${i % 2 === 0 ? 'w-2.5 sm:w-3.5' : 'w-1.5 sm:w-2'}`} />
             </div>
           ))}
         </div>
@@ -122,7 +122,7 @@ export const FloatingDeskPreview: React.FC<FloatingDeskPreviewProps> = ({ select
         {/* The Illustrated Ballpoint Pen Hero (Centerpiece) */}
         <div
           onClick={handlePenFlick}
-          className="absolute inset-0 flex items-center justify-center cursor-pointer group"
+          className="absolute inset-0 flex items-center justify-center cursor-pointer group scale-75 sm:scale-100"
           title="Click to flick the hero pen!"
         >
           <div

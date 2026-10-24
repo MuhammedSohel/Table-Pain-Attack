@@ -46,6 +46,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const dragStartRef = useRef<Vector2D>({ x: 0, y: 0 });
   const dragCurrentRef = useRef<Vector2D>({ x: 0, y: 0 });
 
+  // Mobile Thumb Controls state
+  const [mobileAngle, setMobileAngle] = useState<-22 | 0 | 22>(0);
+  const [mobilePower, setMobilePower] = useState<number>(80);
+
   // Shake offset
   const shakeRef = useRef<{ x: number; y: number; trauma: number }>({ x: 0, y: 0, trauma: 0 });
 
@@ -440,7 +444,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   ]);
 
   // Handle player flick trigger on drag release
-  const handleFlickRelease = () => {
+  const handleFlickRelease = useCallback(() => {
     if (turn !== 'player' || !isDraggingRef.current) return;
     isDraggingRef.current = false;
 
@@ -451,7 +455,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const dy = dragStartRef.current.y - dragCurrentRef.current.y;
     const dragDist = Math.hypot(dx, dy);
 
-    if (dragDist < 12) {
+    if (dragDist < 10) {
       // Too small, ignore
       return;
     }
@@ -480,6 +484,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     sound.playFlick(powerRatio);
     addShake(0.12 * powerRatio);
 
+    // Mobile vibration if supported
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate?.([20]);
+      } catch {
+        // ignore
+      }
+    }
+
     // Switch to opponent turn after move settles
     setTurn('opponent');
     onTurnChange?.('opponent');
@@ -488,7 +501,58 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     setTimeout(() => {
       executeAIMove();
     }, 900);
-  };
+  }, [turn, onTurnChange, executeAIMove, addShake]);
+
+  // Mobile Tactical Launch Flick
+  const launchTacticalFlick = useCallback(() => {
+    if (turn !== 'player' || isPaused) return;
+    const player = pensRef.current.find(p => p.isPlayer && p.isAlive && p.fallProgress === 0);
+    if (!player) return;
+
+    const powerRatio = mobilePower / 100;
+    // Standard table angle points towards top-right towards rivals
+    const baseAngle = -Math.PI / 4 + (mobileAngle * Math.PI) / 180;
+    const dirX = Math.cos(baseAngle);
+    const dirY = Math.sin(baseAngle);
+
+    const speed = powerRatio * 18 * (PENS[player.type]?.agility || 1.0);
+    player.vx = dirX * speed;
+    player.vy = dirY * speed;
+    player.vAngle = (mobileAngle / 22) * 0.28;
+
+    sound.playFlick(powerRatio);
+    addShake(0.12 * powerRatio);
+
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate?.([25]);
+      } catch {
+        // ignore
+      }
+    }
+
+    setTurn('opponent');
+    onTurnChange?.('opponent');
+    setTimeout(() => {
+      executeAIMove();
+    }, 900);
+  }, [turn, isPaused, mobilePower, mobileAngle, onTurnChange, executeAIMove, addShake]);
+
+  // Global window pointer up listener so dragging outside canvas never gets stuck on mobile
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      if (isDraggingRef.current) {
+        handleFlickRelease();
+      }
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
+    };
+  }, [handleFlickRelease]);
 
   // Pointer event handlers (touch and mouse unified)
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -505,13 +569,25 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const player = pensRef.current.find(p => p.isPlayer && p.isAlive && p.fallProgress === 0);
     if (!player) return;
 
-    // Allow clicking on or reasonably near the player pen
+    const isTouch = e.pointerType === 'touch';
     const distToPlayer = Math.hypot(clientX - player.x, clientY - player.y);
-    if (distToPlayer < player.length * 0.8) {
+    // On mobile touch screens, use generous touch target radius (160px) or clicking anywhere in the lower-left desk zone
+    const touchRadius = isTouch ? 180 : player.length * 0.9;
+    const isTouchInPlayerZone = isTouch && (
+      distToPlayer < touchRadius ||
+      (clientY > deskBounds.y + deskBounds.height * 0.35 && clientX < deskBounds.x + deskBounds.width * 0.65)
+    );
+
+    if (distToPlayer < touchRadius || isTouchInPlayerZone) {
       isDraggingRef.current = true;
       dragStartRef.current = { x: player.x, y: player.y };
+      // If user tapped slightly away on mobile, gently start drag from that point
       dragCurrentRef.current = { x: clientX, y: clientY };
-      canvas.setPointerCapture(e.pointerId);
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -760,15 +836,26 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.fillRect(-halfLen + 15, -r * 0.4, pen.length - 38, r * 0.35);
 
-    // 8. Player Indicator Aura
+    // 8. Player Indicator Aura & Mobile Touch Beacon
     if (pen.isPlayer && pen.fallProgress === 0) {
+      const pulseTime = Date.now() / 320;
+      const pulseExpand = Math.sin(pulseTime) * 3.5;
+
       ctx.strokeStyle = '#FF7138';
       ctx.lineWidth = 2.5;
-      ctx.setLineDash([4, 4]);
+      ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.ellipse(0, 0, halfLen + 14, r + 14, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, halfLen + 15 + pulseExpand, r + 15 + pulseExpand, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Friendly directional guidance text when waiting for player move
+      if (turn === 'player' && !isDraggingRef.current) {
+        ctx.fillStyle = '#FF7138';
+        ctx.font = '700 11px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('◄ PULL TO FLICK ►', 0, -r - 20);
+      }
     }
 
     ctx.restore();
@@ -876,7 +963,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   };
 
   return (
-    <div className="relative w-full flex items-center justify-center select-none touch-none">
+    <div className="relative w-full flex flex-col items-center justify-center select-none touch-none">
       <div className="relative rounded-2xl overflow-hidden shadow-board-floating border-2 border-slate-700/60 bg-[#101522] max-w-full">
         <canvas
           ref={canvasRef}
@@ -886,36 +973,108 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="w-full h-auto max-h-[72vh] block cursor-crosshair"
+          className="w-full h-auto max-h-[60vh] sm:max-h-[72vh] block cursor-crosshair"
           style={{ touchAction: 'none' }}
         />
 
         {/* Turn Status Overlay Badge */}
-        <div className="absolute top-4 left-4 z-10 pointer-events-none">
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 pointer-events-none">
           <div
-            className={`px-3.5 py-1.5 rounded-lg border text-xs font-arcade font-bold tracking-wider flex items-center gap-2 ${
+            className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg border text-[10px] sm:text-xs font-arcade font-bold tracking-wider flex items-center gap-1.5 sm:gap-2 ${
               turn === 'player'
                 ? 'bg-[#101522]/90 border-[#FF7138] text-[#FF7138]'
                 : 'bg-[#101522]/90 border-amber-400 text-amber-400'
             }`}
           >
             <span
-              className={`w-2.5 h-2.5 rounded-full ${
+              className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${
                 turn === 'player' ? 'bg-[#FF7138]' : 'bg-amber-400'
               }`}
             />
-            {turn === 'player' ? 'YOUR FLICK' : 'RIVAL IS AIMING...'}
+            {turn === 'player' ? 'YOUR FLICK' : 'RIVAL AIMING...'}
           </div>
         </div>
 
         {/* Hint banner for first wave or desktop users */}
-        {turn === 'player' && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-            <span className="px-4 py-1.5 rounded-full bg-[#101522]/85 border border-[#3568F5]/40 text-[#F5E8CC] text-xs font-body font-medium shadow-md">
-              Drag back from your pen to charge, release to strike
+        {turn === 'player' && !isDraggingRef.current && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none w-11/12 max-w-xs text-center">
+            <span className="inline-block px-3 py-1 rounded-full bg-[#101522]/85 border border-[#3568F5]/40 text-[#F5E8CC] text-[10px] sm:text-xs font-body font-medium shadow-md">
+              Drag on desk or use Touch Pad below
             </span>
           </div>
         )}
+      </div>
+
+      {/* Mobile Tactical Thumb Pad (Touch-friendly quick launcher) */}
+      <div className="w-full max-w-xl mt-2.5 p-2.5 sm:p-3 rounded-2xl bg-[#182033]/90 border border-slate-700/80 shadow-arcade flex flex-col gap-2">
+        <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-arcade text-slate-400 px-1">
+          <span className="flex items-center gap-1.5 font-bold text-[#F5E8CC]">
+            <span className="w-2 h-2 rounded-full bg-[#3568F5]" />
+            QUICK THUMB CONTROLS
+          </span>
+          <span className="text-[9px] text-slate-400">
+            {turn === 'player' ? 'READY TO STRIKE' : 'DEFENDING...'}
+          </span>
+        </div>
+
+        {/* Angle & Power Selectors */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* Aim Angle Preset */}
+          <div className="flex items-center gap-1 bg-[#101522] p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => { sound.playClick(); setMobileAngle(-22); }}
+              className={`flex-1 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-arcade font-bold transition-all ${
+                mobileAngle === -22 ? 'bg-[#3568F5] text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              ↖ LEFT
+            </button>
+            <button
+              onClick={() => { sound.playClick(); setMobileAngle(0); }}
+              className={`flex-1 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-arcade font-bold transition-all ${
+                mobileAngle === 0 ? 'bg-[#3568F5] text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              ↑ CENTER
+            </button>
+            <button
+              onClick={() => { sound.playClick(); setMobileAngle(22); }}
+              className={`flex-1 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-arcade font-bold transition-all ${
+                mobileAngle === 22 ? 'bg-[#3568F5] text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              ↗ RIGHT
+            </button>
+          </div>
+
+          {/* Power Preset */}
+          <div className="flex items-center gap-1 bg-[#101522] p-1 rounded-xl border border-slate-800">
+            {[45, 80, 100].map(p => (
+              <button
+                key={p}
+                onClick={() => { sound.playClick(); setMobilePower(p); }}
+                className={`flex-1 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-arcade font-bold transition-all ${
+                  mobilePower === p ? 'bg-[#FF7138] text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {p === 45 ? 'SOFT' : p === 80 ? 'MED' : 'MAX'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Big Launch Flick Strike Button */}
+        <button
+          disabled={turn !== 'player' || isPaused}
+          onClick={launchTacticalFlick}
+          className={`w-full py-2.5 sm:py-3 rounded-xl font-display text-lg sm:text-xl font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:translate-y-0.5 ${
+            turn === 'player' && !isPaused
+              ? 'bg-[#FF7138] hover:bg-[#ff8352] text-white shadow-arcade-orange cursor-pointer'
+              : 'bg-slate-800/80 text-slate-500 cursor-not-allowed border border-slate-700/40'
+          }`}
+        >
+          <span>{turn === 'player' ? '⚡ FLICK STRIKE!' : 'WAITING FOR OPPONENT...'}</span>
+        </button>
       </div>
     </div>
   );
