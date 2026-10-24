@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Play, HelpCircle, Trophy, Settings, Crosshair, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { GameState, PenId, HighScoreRecord, GameSettings } from './types';
 import { PENS } from './data/pens';
@@ -91,96 +91,115 @@ export default function App() {
   };
 
   // Start new game
-  const handleStartGame = () => {
+  const handleStartGame = useCallback(() => {
     sound.playClick();
     sound.playFlick(0.5);
     setScore(0);
     setWave(1);
     setCombo(1);
+    setComboTimer(prev => {
+      if (prev) clearTimeout(prev);
+      return null;
+    });
     setGameSessionId(prev => prev + 1);
     setIsGameOverOpen(false);
     setIsWaveClearOpen(false);
     setGameState('PLAYING');
-  };
+  }, []);
 
   // Scoring with combo streak system
-  const handleScoreAdd = (points: number, isEdgeKnockout: boolean) => {
-    const multiplier = isEdgeKnockout ? combo : 1;
-    const finalPoints = points * multiplier;
+  const handleScoreAdd = useCallback((points: number, isEdgeKnockout: boolean) => {
+    setCombo(currentCombo => {
+      const multiplier = isEdgeKnockout ? currentCombo : 1;
+      const finalPoints = points * multiplier;
 
-    setScore(prev => {
-      const newScore = prev + finalPoints;
-      if (newScore > bestScore) {
-        setBestScore(newScore);
+      setScore(prev => {
+        const newScore = prev + finalPoints;
+        setBestScore(prevBest => {
+          if (newScore > prevBest) {
+            try {
+              localStorage.setItem('tpa_best_score', String(newScore));
+            } catch {
+              // ignore
+            }
+            return newScore;
+          }
+          return prevBest;
+        });
+        return newScore;
+      });
+
+      if (isEdgeKnockout) {
+        setComboTimer(prevTimer => {
+          if (prevTimer) clearTimeout(prevTimer);
+          return setTimeout(() => {
+            setCombo(1);
+          }, 7000);
+        });
+        return Math.min(currentCombo + 1, 4);
+      }
+      return currentCombo;
+    });
+  }, []);
+
+  // Wave victory
+  const handleWaveComplete = useCallback(() => {
+    setWave(currentWave => {
+      const bonus = 500 + currentWave * 300;
+      setLastWaveBonus(bonus);
+      setScore(prev => prev + bonus);
+      setTotalWins(prev => {
+        const updated = prev + 1;
         try {
-          localStorage.setItem('tpa_best_score', String(newScore));
+          localStorage.setItem('tpa_total_wins', String(updated));
         } catch {
           // ignore
         }
-      }
-      return newScore;
+        return updated;
+      });
+      setIsWaveClearOpen(true);
+      return currentWave;
     });
-
-    if (isEdgeKnockout) {
-      setCombo(prev => Math.min(prev + 1, 4));
-      if (comboTimer) clearTimeout(comboTimer);
-      const timer = setTimeout(() => {
-        setCombo(1);
-      }, 7000);
-      setComboTimer(timer);
-    }
-  };
-
-  // Wave victory
-  const handleWaveComplete = () => {
-    const bonus = 500 + wave * 300;
-    setLastWaveBonus(bonus);
-    setScore(prev => prev + bonus);
-    setTotalWins(prev => {
-      const updated = prev + 1;
-      try {
-        localStorage.setItem('tpa_total_wins', String(updated));
-      } catch {
-        // ignore
-      }
-      return updated;
-    });
-    setIsWaveClearOpen(true);
-  };
+  }, []);
 
   // Next wave trigger
-  const handleNextWave = () => {
+  const handleNextWave = useCallback(() => {
     setIsWaveClearOpen(false);
     setWave(prev => prev + 1);
-  };
+  }, []);
 
   // Game over triggered when player pen falls off
-  const handleGameOver = () => {
+  const handleGameOver = useCallback(() => {
     setIsGameOverOpen(true);
 
-    // Save score if significant
-    const newRecord: HighScoreRecord = {
-      score,
-      wave,
-      penName: PENS[selectedPenId]?.name || 'Classic Ballpoint',
-      date: new Date().toISOString().split('T')[0]
-    };
+    setScore(currentScore => {
+      setWave(currentWave => {
+        const newRecord: HighScoreRecord = {
+          score: currentScore,
+          wave: currentWave,
+          penName: PENS[selectedPenId]?.name || 'Classic Ballpoint',
+          date: new Date().toISOString().split('T')[0]
+        };
 
-    setLeaderboard(prev => {
-      const updated = [...prev, newRecord].sort((a, b) => b.score - a.score).slice(0, 8);
-      try {
-        localStorage.setItem('tpa_leaderboard', JSON.stringify(updated));
-      } catch {
-        // ignore
-      }
-      return updated;
+        setLeaderboard(prev => {
+          const updated = [...prev, newRecord].sort((a, b) => b.score - a.score).slice(0, 8);
+          try {
+            localStorage.setItem('tpa_leaderboard', JSON.stringify(updated));
+          } catch {
+            // ignore
+          }
+          return updated;
+        });
+        return currentWave;
+      });
+      return currentScore;
     });
-  };
+  }, [selectedPenId]);
 
   // Restart match from game over or pause
-  const handleRestart = () => {
+  const handleRestart = useCallback(() => {
     handleStartGame();
-  };
+  }, [handleStartGame]);
 
   // Return to main menu
   const handleReturnToMenu = () => {

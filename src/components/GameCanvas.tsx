@@ -23,6 +23,92 @@ interface GameCanvasProps {
   onSelectPen?: (id: any) => void;
 }
 
+// Arena dimensions
+const DESK_WIDTH = 860;
+const DESK_HEIGHT = 520;
+const CANVAS_WIDTH = 980;
+const CANVAS_HEIGHT = 640;
+
+const DESK_BOUNDS: DeskBounds = {
+  x: (CANVAS_WIDTH - DESK_WIDTH) / 2,
+  y: (CANVAS_HEIGHT - DESK_HEIGHT) / 2,
+  width: DESK_WIDTH,
+  height: DESK_HEIGHT,
+  bevel: 12
+};
+
+// Pure generator for wave entities so canvas is synchronously populated from frame 0
+function createWaveEntities(waveNum: number, pId: string): PenEntity[] {
+  const playerDef = PENS[pId] || PENS.ballpoint;
+  const entities: PenEntity[] = [];
+
+  // Player Pen (placed at bottom-left quadrant)
+  entities.push({
+    id: 'player',
+    type: playerDef.id,
+    isPlayer: true,
+    x: DESK_BOUNDS.x + DESK_BOUNDS.width * 0.28,
+    y: DESK_BOUNDS.y + DESK_BOUNDS.height * 0.68,
+    vx: 0,
+    vy: 0,
+    angle: -Math.PI / 4,
+    vAngle: 0,
+    length: playerDef.length,
+    radius: playerDef.radius,
+    mass: playerDef.mass,
+    friction: playerDef.friction,
+    restitution: playerDef.restitution,
+    primaryColor: playerDef.primaryColor,
+    accentColor: playerDef.accentColor,
+    tipColor: playerDef.tipColor,
+    inkColor: playerDef.inkColor,
+    clipColor: playerDef.clipColor,
+    isAlive: true,
+    fallProgress: 0,
+    fallRotation: 0,
+    inkTrail: []
+  });
+
+  // Enemy count scales with wave: 1 on wave 1, 2 on wave 2, 3 on wave 3+
+  const enemyCount = Math.min(1 + Math.floor((waveNum - 1) * 0.8), 3);
+  const enemyTypes: ('ballpoint' | 'gel' | 'highlighter')[] = ['ballpoint', 'gel', 'highlighter'];
+
+  for (let i = 0; i < enemyCount; i++) {
+    const eType = enemyTypes[(waveNum + i) % enemyTypes.length];
+    const eDef = PENS[eType];
+    const posX = DESK_BOUNDS.x + DESK_BOUNDS.width * (0.55 + (i * 0.18));
+    const posY = DESK_BOUNDS.y + DESK_BOUNDS.height * (0.28 + ((i % 2) * 0.25));
+
+    entities.push({
+      id: `enemy_${i}`,
+      type: eDef.id,
+      isPlayer: false,
+      x: Math.min(posX, DESK_BOUNDS.x + DESK_BOUNDS.width - 80),
+      y: Math.min(posY, DESK_BOUNDS.y + DESK_BOUNDS.height - 80),
+      vx: 0,
+      vy: 0,
+      angle: Math.PI * 0.75 + (Math.random() - 0.5) * 0.6,
+      vAngle: 0,
+      length: eDef.length,
+      radius: eDef.radius,
+      mass: eDef.mass,
+      friction: eDef.friction,
+      restitution: eDef.restitution,
+      primaryColor: i === 0 ? '#E11D48' : i === 1 ? '#0284C7' : '#16A34A',
+      accentColor: '#101522',
+      tipColor: '#CBD5E1',
+      inkColor: i === 0 ? '#E11D48' : i === 1 ? '#0284C7' : '#16A34A',
+      clipColor: '#E2E8F0',
+      isAlive: true,
+      fallProgress: 0,
+      fallRotation: 0,
+      inkTrail: []
+    });
+  }
+
+  return entities;
+}
+
 export const GameCanvas: React.FC<GameCanvasProps> = ({
   playerPenId,
   wave,
@@ -37,8 +123,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Game internal state
-  const pensRef = useRef<PenEntity[]>([]);
+  // Stable callback refs to avoid recreating the physics loop
+  const onScoreAddRef = useRef(onScoreAdd);
+  onScoreAddRef.current = onScoreAdd;
+  const onWaveCompleteRef = useRef(onWaveComplete);
+  onWaveCompleteRef.current = onWaveComplete;
+  const onGameOverRef = useRef(onGameOver);
+  onGameOverRef.current = onGameOver;
+  const onTurnChangeRef = useRef(onTurnChange);
+  onTurnChangeRef.current = onTurnChange;
+
+  // Game internal state - initialized synchronously from frame 0
+  const pensRef = useRef<PenEntity[]>(createWaveEntities(wave, playerPenId));
   const particlesRef = useRef<Particle[]>([]);
   const nextParticleId = useRef(1);
 
@@ -48,7 +144,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<Vector2D>({ x: 0, y: 0 });
   const dragCurrentRef = useRef<Vector2D>({ x: 0, y: 0 });
+
+  // Timers and single-trigger guards
   const aiTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const gameOverTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const waveEndedRef = useRef(false);
+  const gameOverTriggeredRef = useRef(false);
 
   // Mobile Thumb Controls state
   const [mobileAngle, setMobileAngle] = useState<-22 | 0 | 22>(0);
@@ -56,20 +157,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
   // Shake offset
   const shakeRef = useRef<{ x: number; y: number; trauma: number }>({ x: 0, y: 0, trauma: 0 });
-
-  // Arena dimensions
-  const DESK_WIDTH = 860;
-  const DESK_HEIGHT = 520;
-  const CANVAS_WIDTH = 980;
-  const CANVAS_HEIGHT = 640;
-
-  const deskBounds: DeskBounds = {
-    x: (CANVAS_WIDTH - DESK_WIDTH) / 2,
-    y: (CANVAS_HEIGHT - DESK_HEIGHT) / 2,
-    width: DESK_WIDTH,
-    height: DESK_HEIGHT,
-    bevel: 12
-  };
 
   // Helper: Trigger screen shake
   const addShake = useCallback((amount: number) => {
@@ -123,83 +210,23 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
   // Setup wave entities
   const setupWave = useCallback(() => {
-    const playerDef = PENS[playerPenIdRef.current] || PENS.ballpoint;
-    const entities: PenEntity[] = [];
-
-    // Player Pen (placed at bottom-left quadrant)
-    entities.push({
-      id: 'player',
-      type: playerDef.id,
-      isPlayer: true,
-      x: deskBounds.x + deskBounds.width * 0.28,
-      y: deskBounds.y + deskBounds.height * 0.68,
-      vx: 0,
-      vy: 0,
-      angle: -Math.PI / 4,
-      vAngle: 0,
-      length: playerDef.length,
-      radius: playerDef.radius,
-      mass: playerDef.mass,
-      friction: playerDef.friction,
-      restitution: playerDef.restitution,
-      primaryColor: playerDef.primaryColor,
-      accentColor: playerDef.accentColor,
-      tipColor: playerDef.tipColor,
-      inkColor: playerDef.inkColor,
-      clipColor: playerDef.clipColor,
-      isAlive: true,
-      fallProgress: 0,
-      fallRotation: 0,
-      inkTrail: []
-    });
-
-    // Enemy count scales with wave: 1 enemy on wave 1, 2 on wave 2, 3 on wave 3+
-    const enemyCount = Math.min(1 + Math.floor((wave - 1) * 0.8), 3);
-    const enemyTypes: ('ballpoint' | 'gel' | 'highlighter')[] = ['ballpoint', 'gel', 'highlighter'];
-
-    for (let i = 0; i < enemyCount; i++) {
-      const eType = enemyTypes[(wave + i) % enemyTypes.length];
-      const eDef = PENS[eType];
-      const posX = deskBounds.x + deskBounds.width * (0.55 + (i * 0.18));
-      const posY = deskBounds.y + deskBounds.height * (0.28 + ((i % 2) * 0.25));
-
-      entities.push({
-        id: `enemy_${i}`,
-        type: eDef.id,
-        isPlayer: false,
-        x: Math.min(posX, deskBounds.x + deskBounds.width - 80),
-        y: Math.min(posY, deskBounds.y + deskBounds.height - 80),
-        vx: 0,
-        vy: 0,
-        angle: Math.PI * 0.75 + (Math.random() - 0.5) * 0.6,
-        vAngle: 0,
-        length: eDef.length,
-        radius: eDef.radius,
-        mass: eDef.mass,
-        friction: eDef.friction,
-        restitution: eDef.restitution,
-        primaryColor: i === 0 ? '#E11D48' : i === 1 ? '#0284C7' : '#16A34A', // Distinct enemy barrels
-        accentColor: '#101522',
-        tipColor: '#CBD5E1',
-        inkColor: i === 0 ? '#E11D48' : i === 1 ? '#0284C7' : '#16A34A',
-        clipColor: '#E2E8F0',
-        isAlive: true,
-        fallProgress: 0,
-        fallRotation: 0,
-        inkTrail: []
-      });
-    }
-
-    pensRef.current = entities;
+    pensRef.current = createWaveEntities(wave, playerPenIdRef.current);
     particlesRef.current = [];
     if (aiTimerRef.current) {
       clearTimeout(aiTimerRef.current);
       aiTimerRef.current = null;
     }
+    if (gameOverTimerRef.current) {
+      clearTimeout(gameOverTimerRef.current);
+      gameOverTimerRef.current = null;
+    }
+    waveEndedRef.current = false;
+    gameOverTriggeredRef.current = false;
+    isDraggingRef.current = false;
     turnStateRef.current = 'PLAYER_TURN';
     setTurn('player');
-    onTurnChange?.('player');
-  }, [wave, onTurnChange]);
+    onTurnChangeRef.current?.('player');
+  }, [wave]);
 
   // Re-initialize on wave change
   useEffect(() => {
@@ -215,7 +242,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (!player || enemies.length === 0) {
       turnStateRef.current = 'PLAYER_TURN';
       setTurn('player');
-      onTurnChange?.('player');
+      onTurnChangeRef.current?.('player');
       return;
     }
 
@@ -246,7 +273,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     addShake(0.18);
 
     turnStateRef.current = 'AI_MOVING';
-  }, [wave, onTurnChange, addShake]);
+  }, [wave, addShake]);
 
   // Main 60 FPS animation & physics loop
   useEffect(() => {
@@ -284,18 +311,22 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           if (!pen.isAlive) continue;
 
           // Check if falling off table
-          const { fellOffJustNow } = updatePenDeskStatus(pen, deskBounds, dt);
+          const { fellOffJustNow } = updatePenDeskStatus(pen, DESK_BOUNDS, dt);
           if (fellOffJustNow) {
             sound.playFallOffEdge();
             addShake(0.35);
             if (pen.isPlayer) {
               // Player fell off
-              setTimeout(() => {
-                onGameOver();
-              }, 600);
+              if (!gameOverTriggeredRef.current) {
+                gameOverTriggeredRef.current = true;
+                if (gameOverTimerRef.current) clearTimeout(gameOverTimerRef.current);
+                gameOverTimerRef.current = setTimeout(() => {
+                  onGameOverRef.current?.();
+                }, 600);
+              }
             } else {
               // Enemy fell off: combo score!
-              onScoreAdd(350 * wave, true);
+              onScoreAddRef.current?.(350 * wave, true);
               sound.playScoreChime(2);
             }
           }
@@ -358,7 +389,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
                 // Small score for direct player hit
                 if (penA.isPlayer || penB.isPlayer) {
-                  onScoreAdd(50, false);
+                  onScoreAddRef.current?.(50, false);
                 }
               }
             }
@@ -379,21 +410,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
 
         // TURN & WAVE STATE CHECK
-        const playerAlive = pens.some(p => p.isPlayer && p.isAlive);
-        const aliveEnemies = pens.filter(p => !p.isPlayer && p.isAlive);
+        const playerAlive = pens.some(p => p.isPlayer && p.isAlive && p.fallProgress === 0);
+        const aliveEnemies = pens.filter(p => !p.isPlayer && p.isAlive && p.fallProgress === 0);
 
         if (!anyMoving) {
-          if (!playerAlive) {
-            // Already handled
+          if (!playerAlive || gameOverTriggeredRef.current) {
+            // Player lost or falling off: wait for game over modal without triggering wave victory
           } else if (aliveEnemies.length === 0) {
-            // Wave cleared!
-            sound.playWaveVictory();
-            onWaveComplete();
+            // Wave cleared! Trigger exactly once per wave
+            if (!waveEndedRef.current) {
+              waveEndedRef.current = true;
+              sound.playWaveVictory();
+              onWaveCompleteRef.current?.();
+            }
           } else if (turnStateRef.current === 'PLAYER_MOVING') {
             // Player's shot has stopped moving! Hand turn over to Opponent:
             turnStateRef.current = 'AI_WAITING';
             setTurn('opponent');
-            onTurnChange?.('opponent');
+            onTurnChangeRef.current?.('opponent');
 
             if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
             aiTimerRef.current = setTimeout(() => {
@@ -403,7 +437,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             // AI's shot has stopped moving! Hand turn back to Player:
             turnStateRef.current = 'PLAYER_TURN';
             setTurn('player');
-            onTurnChange?.('player');
+            onTurnChangeRef.current?.('player');
           }
         }
       }
@@ -420,7 +454,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
       // B. Floating Wooden Desk Top
-      renderDesk(ctx, deskBounds);
+      renderDesk(ctx, DESK_BOUNDS);
 
       // C. Ink Trails on desk surface
       for (const pen of pensRef.current) {
@@ -478,16 +512,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         clearTimeout(aiTimerRef.current);
         aiTimerRef.current = null;
       }
+      if (gameOverTimerRef.current) {
+        clearTimeout(gameOverTimerRef.current);
+        gameOverTimerRef.current = null;
+      }
     };
   }, [
     isPaused,
-    deskBounds,
     wave,
     showTrajectory,
-    onScoreAdd,
-    onWaveComplete,
-    onGameOver,
-    onTurnChange,
     addShake,
     fireAIMove
   ]);
@@ -619,7 +652,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const touchRadius = isTouch ? 180 : player.length * 0.9;
     const isTouchInPlayerZone = isTouch && (
       distToPlayer < touchRadius ||
-      (clientY > deskBounds.y + deskBounds.height * 0.35 && clientX < deskBounds.x + deskBounds.width * 0.65)
+      (clientY > DESK_BOUNDS.y + DESK_BOUNDS.height * 0.35 && clientX < DESK_BOUNDS.x + DESK_BOUNDS.width * 0.65)
     );
 
     if (distToPlayer < touchRadius || isTouchInPlayerZone) {
