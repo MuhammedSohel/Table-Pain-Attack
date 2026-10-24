@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trophy, Flame, Pause, Play, Volume2, VolumeX, RotateCcw, Crosshair } from 'lucide-react';
-import { PenDefinition } from '../types';
+import { PenDefinition, PenId } from '../types';
+import { PENS } from '../data/pens';
 import { sound } from '../utils/audio';
 
 interface ArcadeHUDProps {
@@ -11,6 +12,7 @@ interface ArcadeHUDProps {
   isPaused: boolean;
   soundEnabled: boolean;
   selectedPen: PenDefinition;
+  onSelectPen?: (id: PenId) => void;
   onTogglePause: () => void;
   onToggleSound: () => void;
   onRestart: () => void;
@@ -26,6 +28,7 @@ export const ArcadeHUD: React.FC<ArcadeHUDProps> = ({
   isPaused,
   soundEnabled,
   selectedPen,
+  onSelectPen,
   onTogglePause,
   onToggleSound,
   onRestart,
@@ -150,25 +153,57 @@ export const ArcadeHUD: React.FC<ArcadeHUDProps> = ({
         </div>
       </div>
 
-      {/* Secondary Bar: Active Pen Spec Strip */}
-      <div className="flex items-center justify-between text-xs text-slate-400 border-t border-slate-800/80 pt-2 px-1">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-arcade text-slate-400">EQUIPPED:</span>
-          <span className="font-semibold text-[#F5E8CC]">{selectedPen.name}</span>
-          <span className="hidden md:inline text-slate-500">·</span>
-          <span className="hidden md:inline text-slate-400">{selectedPen.tagline}</span>
+      {/* Secondary Bar: Active Pen 1-Tap Switcher + Quick Spec Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 text-xs text-slate-400 border-t border-slate-800/80 pt-1.5 sm:pt-2 px-1">
+        {/* Instant 1-Tap Pen Switcher */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <span className="text-[9px] sm:text-[11px] font-arcade text-slate-400 font-bold tracking-wider">
+            PEN:
+          </span>
+          <div className="flex items-center gap-1 bg-[#182033] p-0.5 rounded-lg border border-slate-700/80">
+            {Object.values(PENS).map((pen) => {
+              const isSelected = selectedPen.id === pen.id;
+              return (
+                <button
+                  key={pen.id}
+                  onClick={() => {
+                    if (onSelectPen && pen.id !== selectedPen.id) {
+                      sound.playClick();
+                      onSelectPen(pen.id);
+                    }
+                  }}
+                  className={`px-2 py-1 rounded text-[10px] sm:text-xs font-arcade font-bold flex items-center gap-1.5 transition-all ${
+                    isSelected
+                      ? 'bg-[#FF7138] text-white shadow-sm ring-1 ring-white/30'
+                      : 'text-slate-400 hover:text-[#F5E8CC] hover:bg-[#202B45]'
+                  }`}
+                  title={`${pen.name}: ${pen.tagline}`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full inline-block shrink-0"
+                    style={{ backgroundColor: pen.primaryColor }}
+                  />
+                  <span>{pen.name.replace(' Pen', '')}</span>
+                  {isSelected && (
+                    <span className="text-[9px] text-white/80 hidden md:inline">({pen.tagline})</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
+        {/* Arsenal Details Button */}
         {onOpenArsenal && (
           <button
             onClick={() => {
               sound.playClick();
               onOpenArsenal();
             }}
-            className="text-[11px] font-medium text-[#3568F5] hover:text-[#5B88FF] transition-colors flex items-center gap-1 underline underline-offset-4"
+            className="text-[10px] sm:text-[11px] font-medium text-[#3568F5] hover:text-[#5B88FF] transition-colors flex items-center gap-1 underline underline-offset-4"
           >
             <Crosshair className="w-3 h-3" />
-            <span>Switch Pen</span>
+            <span>Stats</span>
           </button>
         )}
       </div>

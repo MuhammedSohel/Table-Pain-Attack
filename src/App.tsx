@@ -34,6 +34,7 @@ export default function App() {
   const [wave, setWave] = useState<number>(1);
   const [combo, setCombo] = useState<number>(1);
   const [comboTimer, setComboTimer] = useState<NodeJS.Timeout | null>(null);
+  const [gameSessionId, setGameSessionId] = useState<number>(1);
 
   // Persistence
   const [bestScore, setBestScore] = useState<number>(() => {
@@ -96,6 +97,7 @@ export default function App() {
     setScore(0);
     setWave(1);
     setCombo(1);
+    setGameSessionId(prev => prev + 1);
     setIsGameOverOpen(false);
     setIsWaveClearOpen(false);
     setGameState('PLAYING');
@@ -398,6 +400,7 @@ export default function App() {
             isPaused={gameState === 'PAUSED'}
             soundEnabled={settings.soundEnabled}
             selectedPen={currentPen}
+            onSelectPen={id => setSelectedPenId(id)}
             onTogglePause={() => {
               setGameState(prev => (prev === 'PLAYING' ? 'PAUSED' : 'PLAYING'));
             }}
@@ -410,6 +413,7 @@ export default function App() {
           {/* Active Canvas Play Area */}
           <div className="flex-1 flex items-center justify-center p-2 sm:p-4">
             <GameCanvas
+              key={`session_${gameSessionId}_wave_${wave}`}
               playerPenId={selectedPenId}
               wave={wave}
               onScoreAdd={handleScoreAdd}
@@ -418,6 +422,7 @@ export default function App() {
               isPaused={gameState === 'PAUSED'}
               screenShakeEnabled={settings.screenShake}
               showTrajectory={settings.showTrajectory}
+              onSelectPen={id => setSelectedPenId(id)}
             />
           </div>
         </div>

@@ -20,6 +20,7 @@ interface GameCanvasProps {
   screenShakeEnabled: boolean;
   showTrajectory: boolean;
   onTurnChange?: (turn: 'player' | 'opponent') => void;
+  onSelectPen?: (id: any) => void;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
@@ -31,7 +32,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   isPaused,
   screenShakeEnabled,
   showTrajectory,
-  onTurnChange
+  onTurnChange,
+  onSelectPen
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -40,11 +42,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const particlesRef = useRef<Particle[]>([]);
   const nextParticleId = useRef(1);
 
-  // Turn and interaction
+  // Turn State Machine: 'PLAYER_TURN' -> 'PLAYER_MOVING' -> 'AI_WAITING' -> 'AI_MOVING' -> 'PLAYER_TURN'
+  const turnStateRef = useRef<'PLAYER_TURN' | 'PLAYER_MOVING' | 'AI_WAITING' | 'AI_MOVING'>('PLAYER_TURN');
   const [turn, setTurn] = useState<'player' | 'opponent'>('player');
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<Vector2D>({ x: 0, y: 0 });
   const dragCurrentRef = useRef<Vector2D>({ x: 0, y: 0 });
+  const aiTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Mobile Thumb Controls state
   const [mobileAngle, setMobileAngle] = useState<-22 | 0 | 22>(0);
@@ -93,9 +97,33 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   };
 
+  const playerPenIdRef = useRef(playerPenId);
+  playerPenIdRef.current = playerPenId;
+
+  // In-place live pen update when player switches pen (0ms instant switch, keeps table state intact)
+  useEffect(() => {
+    const playerPen = pensRef.current.find(p => p.isPlayer && p.isAlive);
+    const newDef = PENS[playerPenId] || PENS.ballpoint;
+    if (playerPen && newDef) {
+      playerPen.type = newDef.id;
+      playerPen.length = newDef.length;
+      playerPen.radius = newDef.radius;
+      playerPen.mass = newDef.mass;
+      playerPen.friction = newDef.friction;
+      playerPen.restitution = newDef.restitution;
+      playerPen.primaryColor = newDef.primaryColor;
+      playerPen.accentColor = newDef.accentColor;
+      playerPen.tipColor = newDef.tipColor;
+      playerPen.inkColor = newDef.inkColor;
+      playerPen.clipColor = newDef.clipColor;
+      // Instant visual burst of ink particles
+      spawnHitParticles(playerPen.x, playerPen.y, newDef.primaryColor, 10);
+    }
+  }, [playerPenId]);
+
   // Setup wave entities
   const setupWave = useCallback(() => {
-    const playerDef = PENS[playerPenId] || PENS.ballpoint;
+    const playerDef = PENS[playerPenIdRef.current] || PENS.ballpoint;
     const entities: PenEntity[] = [];
 
     // Player Pen (placed at bottom-left quadrant)
@@ -164,22 +192,28 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     pensRef.current = entities;
     particlesRef.current = [];
+    if (aiTimerRef.current) {
+      clearTimeout(aiTimerRef.current);
+      aiTimerRef.current = null;
+    }
+    turnStateRef.current = 'PLAYER_TURN';
     setTurn('player');
     onTurnChange?.('player');
-  }, [playerPenId, wave, onTurnChange]);
+  }, [wave, onTurnChange]);
 
   // Re-initialize on wave change
   useEffect(() => {
     setupWave();
   }, [setupWave]);
 
-  // AI Opponent move calculation
-  const executeAIMove = useCallback(() => {
+  // AI Opponent move execution
+  const fireAIMove = useCallback(() => {
     const pens = pensRef.current;
     const player = pens.find(p => p.isPlayer && p.isAlive && p.fallProgress === 0);
     const enemies = pens.filter(p => !p.isPlayer && p.isAlive && p.fallProgress === 0);
 
     if (!player || enemies.length === 0) {
+      turnStateRef.current = 'PLAYER_TURN';
       setTurn('player');
       onTurnChange?.('player');
       return;
@@ -193,25 +227,25 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const dy = player.y - shooter.y;
     const dist = Math.hypot(dx, dy) || 1;
 
-    // Accuracy variation: slightly looser on early waves, pinpoint on wave 4+
-    const inaccuracy = Math.max(0.18 - wave * 0.03, 0.04);
+    // Accuracy variation: slightly looser on early waves, sharp on later waves
+    const inaccuracy = Math.max(0.18 - wave * 0.025, 0.04);
     const noiseAngle = (Math.random() - 0.5) * inaccuracy;
     const cos = Math.cos(noiseAngle);
     const sin = Math.sin(noiseAngle);
     const aimX = (dx / dist) * cos - (dy / dist) * sin;
     const aimY = (dx / dist) * sin + (dy / dist) * cos;
 
-    // Power scales with distance, capped at ~14.5
-    const basePower = Math.min(Math.max(dist * 0.024, 7.5), 14.5);
+    // Power scales with distance, capped between 8.5 and 15.0
+    const basePower = Math.min(Math.max(dist * 0.025, 8.5), 15.0);
 
-    setTimeout(() => {
-      shooter.vx = aimX * basePower;
-      shooter.vy = aimY * basePower;
-      shooter.vAngle = (Math.random() - 0.5) * 0.25;
+    shooter.vx = aimX * basePower;
+    shooter.vy = aimY * basePower;
+    shooter.vAngle = (Math.random() - 0.5) * 0.3;
 
-      sound.playFlick(basePower / 15);
-      addShake(0.18);
-    }, 550);
+    sound.playFlick(basePower / 15);
+    addShake(0.18);
+
+    turnStateRef.current = 'AI_MOVING';
   }, [wave, onTurnChange, addShake]);
 
   // Main 60 FPS animation & physics loop
@@ -355,12 +389,21 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             // Wave cleared!
             sound.playWaveVictory();
             onWaveComplete();
-          } else {
-            // Switch turn if necessary
-            if (turn === 'opponent') {
-              setTurn('player');
-              onTurnChange?.('player');
-            }
+          } else if (turnStateRef.current === 'PLAYER_MOVING') {
+            // Player's shot has stopped moving! Hand turn over to Opponent:
+            turnStateRef.current = 'AI_WAITING';
+            setTurn('opponent');
+            onTurnChange?.('opponent');
+
+            if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+            aiTimerRef.current = setTimeout(() => {
+              fireAIMove();
+            }, 600);
+          } else if (turnStateRef.current === 'AI_MOVING') {
+            // AI's shot has stopped moving! Hand turn back to Player:
+            turnStateRef.current = 'PLAYER_TURN';
+            setTurn('player');
+            onTurnChange?.('player');
           }
         }
       }
@@ -429,23 +472,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     };
 
     animId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(animId);
+    return () => {
+      cancelAnimationFrame(animId);
+      if (aiTimerRef.current) {
+        clearTimeout(aiTimerRef.current);
+        aiTimerRef.current = null;
+      }
+    };
   }, [
     isPaused,
     deskBounds,
-    turn,
     wave,
     showTrajectory,
     onScoreAdd,
     onWaveComplete,
     onGameOver,
     onTurnChange,
-    addShake
+    addShake,
+    fireAIMove
   ]);
 
   // Handle player flick trigger on drag release
   const handleFlickRelease = useCallback(() => {
-    if (turn !== 'player' || !isDraggingRef.current) return;
+    if (turnStateRef.current !== 'PLAYER_TURN' || !isDraggingRef.current) return;
     isDraggingRef.current = false;
 
     const player = pensRef.current.find(p => p.isPlayer && p.isAlive && p.fallProgress === 0);
@@ -493,19 +542,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     }
 
-    // Switch to opponent turn after move settles
+    // Set state to PLAYER_MOVING (opponent will attack once movement settles)
+    turnStateRef.current = 'PLAYER_MOVING';
     setTurn('opponent');
     onTurnChange?.('opponent');
-
-    // Trigger AI move with a natural tactical pause
-    setTimeout(() => {
-      executeAIMove();
-    }, 900);
-  }, [turn, onTurnChange, executeAIMove, addShake]);
+  }, [onTurnChange, addShake]);
 
   // Mobile Tactical Launch Flick
   const launchTacticalFlick = useCallback(() => {
-    if (turn !== 'player' || isPaused) return;
+    if (turnStateRef.current !== 'PLAYER_TURN' || isPaused) return;
     const player = pensRef.current.find(p => p.isPlayer && p.isAlive && p.fallProgress === 0);
     if (!player) return;
 
@@ -531,12 +576,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     }
 
+    // Set state to PLAYER_MOVING (opponent will attack once movement settles)
+    turnStateRef.current = 'PLAYER_MOVING';
     setTurn('opponent');
     onTurnChange?.('opponent');
-    setTimeout(() => {
-      executeAIMove();
-    }, 900);
-  }, [turn, isPaused, mobilePower, mobileAngle, onTurnChange, executeAIMove, addShake]);
+  }, [isPaused, mobilePower, mobileAngle, onTurnChange, addShake]);
 
   // Global window pointer up listener so dragging outside canvas never gets stuck on mobile
   useEffect(() => {
@@ -556,7 +600,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
   // Pointer event handlers (touch and mouse unified)
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (turn !== 'player' || isPaused) return;
+    if (turnStateRef.current !== 'PLAYER_TURN' || isPaused) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1015,6 +1059,36 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           <span className="text-[9px] text-slate-400">
             {turn === 'player' ? 'READY TO STRIKE' : 'DEFENDING...'}
           </span>
+        </div>
+
+        {/* Quick Pen Switcher */}
+        <div className="flex items-center gap-1.5 bg-[#101522] p-1 rounded-xl border border-slate-800">
+          <span className="text-[9px] font-arcade text-slate-400 pl-1.5 uppercase font-bold shrink-0">PEN:</span>
+          {Object.values(PENS).map(pen => {
+            const isSelected = playerPenId === pen.id;
+            return (
+              <button
+                key={pen.id}
+                onClick={() => {
+                  if (onSelectPen && pen.id !== playerPenId) {
+                    sound.playClick();
+                    onSelectPen(pen.id);
+                  }
+                }}
+                className={`flex-1 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-arcade font-bold flex items-center justify-center gap-1 transition-all ${
+                  isSelected
+                    ? 'bg-[#3568F5] text-white shadow-sm ring-1 ring-white/20'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full inline-block shrink-0"
+                  style={{ backgroundColor: pen.primaryColor }}
+                />
+                <span>{pen.name.replace(' Pen', '')}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Angle & Power Selectors */}
