@@ -1,0 +1,6 @@
+{
+  "name": "Table Pen Attack",
+  "description": "The Classroom Arcade: A retro-tactical pen-flicking table action game.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

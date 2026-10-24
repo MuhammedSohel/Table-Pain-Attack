@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-navy: #101522;
+    --color-cream: #F5E8CC;
+    --color-orange: #FF7138;
+    --color-cobalt: #3568F5;
+    --color-olive: #A6AD75;
+  }
+
+  body {
+    background-color: #101522;
+    color: #F5E8CC;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    overflow-x: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+.font-display {
+  font-family: 'Barlow Condensed', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.font-body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.font-arcade {
+  font-family: 'Space Mono', monospace;
+}
+
+/* Subtle school notebook grid pattern */
+.pattern-graph-paper {
+  background-image: 
+    linear-gradient(rgba(53, 104, 245, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(53, 104, 245, 0.07) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.pattern-ruled-paper {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 23px,
+    rgba(53, 104, 245, 0.1) 24px
+  );
+}
+
+/* Custom crisp arcade shadows */
+.shadow-arcade {
+  box-shadow: 0 6px 0 0 rgba(16, 21, 34, 0.8), 0 10px 20px rgba(0, 0, 0, 0.35);
+}
+
+.shadow-arcade-orange {
+  box-shadow: 0 5px 0 0 #B84717, 0 8px 16px rgba(255, 113, 56, 0.3);
+}
+
+.shadow-arcade-cobalt {
+  box-shadow: 0 5px 0 0 #1E44A3, 0 8px 16px rgba(53, 104, 245, 0.3);
+}
+
+.shadow-arcade-cream {
+  box-shadow: 0 4px 0 0 #C4B594;
+}
+
+.shadow-board-floating {
+  box-shadow: 
+    0 20px 40px -10px rgba(0, 0, 0, 0.65),
+    0 40px 80px -20px rgba(16, 21, 34, 0.9),
+    inset 0 2px 4px rgba(255, 255, 255, 0.15),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.4);
+}
